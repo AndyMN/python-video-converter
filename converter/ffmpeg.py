@@ -7,11 +7,13 @@ import signal
 from subprocess import Popen, PIPE
 import logging
 import locale
+import platform
 
 logger = logging.getLogger(__name__)
 
 console_encoding = locale.getdefaultlocale()[1] or 'UTF-8'
 
+windows = platform.system() = 'Windows'
 
 class FFMpegError(Exception):
     pass
@@ -321,21 +323,21 @@ class FFMpeg(object):
 
         def which(name):
             path = os.environ.get('PATH', os.defpath)
-            for d in path.split(':'):
+            for d in path.split(os.pathsep):
                 fpath = os.path.join(d, name)
                 if os.path.exists(fpath) and os.access(fpath, os.X_OK):
                     return fpath
             return None
 
         if ffmpeg_path is None:
-            ffmpeg_path = 'ffmpeg'
+            ffmpeg_path = 'ffmpeg.exe' if windows else 'ffmpeg'
 
         if ffprobe_path is None:
-            ffprobe_path = 'ffprobe'
+            ffprobe_path = 'ffprobe.exe' if windows else 'ffprobe'
 
-        if '/' not in ffmpeg_path:
+        if os.path.sep not in ffmpeg_path:
             ffmpeg_path = which(ffmpeg_path) or ffmpeg_path
-        if '/' not in ffprobe_path:
+        if os.path.sep not in ffprobe_path:
             ffprobe_path = which(ffprobe_path) or ffprobe_path
 
         self.ffmpeg_path = ffmpeg_path
@@ -351,7 +353,7 @@ class FFMpeg(object):
     def _spawn(cmds):
         logger.debug('Spawning ffmpeg with command: ' + ' '.join(cmds))
         return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                     close_fds=True)
+                     close_fds=(not windows))
 
     def probe(self, fname, posters_as_video=True):
         """
@@ -417,7 +419,7 @@ class FFMpeg(object):
         """
         if not os.path.exists(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
-
+        if windows: timeout = None
         cmds = [self.ffmpeg_path, '-i', infile]
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
